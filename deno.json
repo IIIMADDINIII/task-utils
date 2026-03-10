@@ -1,11 +1,18 @@
 {
   "name": "@iiimaddiniii/task-utils",
   "version": "0.0.1",
+  "license": "MIT",
   "exports": {
     ".": "./main.ts",
     "./pnpm": "./pnpm.ts"
   },
   "imports": {
     "execa": "npm:execa@^9.6.1"
+  },
+  "publish": {
+    "exclude": [
+      ".vscode/",
+      "mise.toml"
+    ]
   }
 }
