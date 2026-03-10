@@ -3,10 +3,15 @@ import { execa } from "execa";
 /**
  * Runs a raw pnpm command with the specified arguments.
  * @param args - The command-line arguments for the pnpm command.
+ * @param silent - Whether to suppress the command output in the console. If true, the command will be executed without printing the command and its output to the console. This can be useful in contexts where you want to run pnpm commands without cluttering the console output, such as in CI pipelines or when running multiple commands in sequence.
  * @returns - A promise resolving to the stdout of the pnpm command.
  */
-export async function run(...args: string[]): Promise<string> {
-  return (await execa`pnpm ${args}`).stdout;
+export async function run(
+  args: string[],
+  silent: boolean = false,
+): Promise<string> {
+  return (await execa({ verbose: silent ? undefined : "full" })`pnpm ${args}`)
+    .stdout;
 }
 
 /** Configuration options for pnpm operations. */
@@ -53,14 +58,17 @@ export async function install(
   {
     frozenLockfile = false,
     config = { confirmModulesPurge: false },
+    silent = false,
   }: {
     /** Whether to use the frozen lockfile. Use this option to ensure a reproducible installation during CI builds. */
     frozenLockfile?: boolean | undefined;
     /** The configuration options for pnpm operations. */
     config?: PnpmConfig | undefined;
+    /** Whether to suppress the command output in the console. */
+    silent?: boolean | undefined;
   } = {},
 ): Promise<void> {
   const args: string[] = [];
   if (frozenLockfile) args.push("--frozen-lockfile");
-  await run("install", ...args, ...makeConfigFlags(config));
+  await run(["install", ...args, ...makeConfigFlags(config)], silent);
 }
