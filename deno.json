@@ -1,6 +1,6 @@
 {
   "name": "@iiimaddiniii/task-utils",
-  "version": "0.0.1",
+  "version": "0.0.1-1",
   "license": "MIT",
   "exports": {
     ".": "./main.ts",
