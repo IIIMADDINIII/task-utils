@@ -1,0 +1,11 @@
+{
+  "name": "@iiimaddiniii/task-utils",
+  "version": "0.0.1",
+  "exports": {
+    ".": "./main.ts",
+    "./pnpm": "./pnpm.ts"
+  },
+  "imports": {
+    "execa": "npm:execa@^9.6.1"
+  }
+}
