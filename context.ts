@@ -1,3 +1,4 @@
+import { Options } from "execa";
 import * as colors from "fmt/colors";
 import { writeAllSync } from "io";
 
@@ -115,8 +116,25 @@ export abstract class Ctx {
    * Returns the verbose option for execa based on the silent flag.
    * @returns The verbose option for execa. If silent is true, it returns undefined, which means that execa will not print the command output to the console. If silent is false, it returns a function that formats lines using the context's formatLine method, which means that execa will print the command output to the console using the context's formatting.
    */
-  execaVerbose(): undefined | ((line: string) => string) {
-    return this.silent ? undefined : this.formatLine.bind(this);
+  execaVerbose(): Options["verbose"] {
+    if (this.silent) {
+      return "none";
+    }
+    return (_line, object) => {
+      switch (object.type) {
+        case "command":
+          return this.formatLine(colors.gray("⯈ " + object.message));
+        case "ipc":
+          return this.formatLine(colors.yellow("🡘 ") + object.message);
+        case "output":
+          return this.formatLine(object.message);
+        case "error":
+          return this.formatLine(colors.red(object.message));
+        case "duration":
+          return "";
+      }
+      return;
+    };
   }
 }
 
