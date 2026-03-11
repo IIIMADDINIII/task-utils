@@ -13,7 +13,7 @@
     "path": "jsr:@std/path@^1.1.4",
     "simple-git": "npm:simple-git@^3.33.0",
     "io": "jsr:@std/io@^0.225.3",
-    "fmt": "jsr:@std/fmt"
+    "fmt": "jsr:@std/fmt@^1.0.9"
   },
   "publish": {
     "exclude": [
