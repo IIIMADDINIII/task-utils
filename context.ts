@@ -131,9 +131,8 @@ export abstract class Ctx {
         case "error":
           return this.formatLine(colors.red(object.message));
         case "duration":
-          return "";
+          return undefined;
       }
-      return;
     };
   }
 }
