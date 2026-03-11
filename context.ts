@@ -1,3 +1,5 @@
+import { writeAll } from "io";
+
 /** A text encoder for encoding strings to bytes. */
 const textEncoder: TextEncoder = new TextEncoder();
 
@@ -45,7 +47,7 @@ export abstract class Ctx {
    */
   print(string: string): void {
     if (this.silent) return;
-    Deno.stdout.write(textEncoder.encode(this.formatLine(string)));
+    writeAll(Deno.stdout, textEncoder.encode(this.formatLines(string)));
   }
 
   /**
