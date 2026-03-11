@@ -106,7 +106,8 @@ export class Ctx {
    * @returns The sub-context for the task.
    */
   #startTask(options: CtxOptions): Ctx {
-    this.print(`${colors.blue("⯈")} Start ${name}`);
+    if (options.name === undefined || options.name === "") throw new Error("Function must have a name or be provided with one.");
+    this.print(`${colors.blue("⯈")} Start ${options.name}`);
     return this.subCtx({ prefix: "  ", ...options });
   }
 
@@ -137,7 +138,6 @@ export class Ctx {
    */
   runTask<T>(options: CtxOptions, fn: (ctx: Ctx) => T): T {
     if (options.name === undefined) options.name = fn.name;
-    if (options.name === "") throw new Error("Function must have a name or be provided with one.");
     const ctx = this.#startTask(options);
     try {
       const result = fn(ctx);
@@ -157,7 +157,6 @@ export class Ctx {
    */
   async runTaskAsync<T>(options: CtxOptions, fn: (ctx: Ctx) => Promise<T>): Promise<T> {
     if (options.name === undefined) options.name = fn.name;
-    if (options.name === "") throw new Error("Function must have a name or be provided with one.");
     const ctx = this.#startTask(options);
     try {
       const result = await fn(ctx);
