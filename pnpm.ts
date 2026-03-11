@@ -1,4 +1,5 @@
 import { execa } from "execa";
+import { task } from "./context.ts";
 
 /**
  * Runs a raw pnpm command with the specified arguments.
@@ -6,13 +7,13 @@ import { execa } from "execa";
  * @param silent - Whether to suppress the command output in the console. If true, the command will be executed without printing the command and its output to the console. This can be useful in contexts where you want to run pnpm commands without cluttering the console output, such as in CI pipelines or when running multiple commands in sequence.
  * @returns - A promise resolving to the stdout of the pnpm command.
  */
-export async function run(
+export const run = task("Running pnpm command", async (
+  ctx,
   args: string[],
-  silent: boolean = false,
-): Promise<string> {
-  return (await execa({ verbose: silent ? undefined : "full" })`pnpm ${args}`)
+): Promise<string> => {
+  return (await execa({ verbose: ctx.execaVerbose() })`pnpm ${args}`)
     .stdout;
-}
+});
 
 /** Configuration options for pnpm operations. */
 export type PnpmConfig = {
@@ -54,21 +55,19 @@ export function makeConfigFlags(config: PnpmConfig): string[] {
  * Run `pnpm install` with the specified options.
  * @param options - The options for the install operation. config.confirmModulesPurge will be set to false by default, which means that if pnpm needs to purge modules during installation, it will do so without asking for confirmation.
  */
-export async function install(
+export const install = task("Installing pnpm dependencies", async (
+  ctx,
   {
     frozenLockfile = false,
     config = { confirmModulesPurge: false },
-    silent = false,
   }: {
     /** Whether to use the frozen lockfile. Use this option to ensure a reproducible installation during CI builds. */
     frozenLockfile?: boolean | undefined;
-    /** The configuration options for pnpm operations. */
+    /** The configuration options for pnpm operations. config.confirmModulesPurge will be set to false by default, which means that if pnpm needs to purge modules during installation, it will do so without asking for confirmation. */
     config?: PnpmConfig | undefined;
-    /** Whether to suppress the command output in the console. */
-    silent?: boolean | undefined;
   } = {},
-): Promise<void> {
+): Promise<void> => {
   const args: string[] = [];
   if (frozenLockfile) args.push("--frozen-lockfile");
-  await run(["install", ...args, ...makeConfigFlags(config)], silent);
-}
+  await run(ctx, ["install", ...args, ...makeConfigFlags(config)]);
+});

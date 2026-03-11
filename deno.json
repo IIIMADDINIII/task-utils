@@ -7,12 +7,18 @@
     "./pnpm": "./pnpm.ts"
   },
   "imports": {
-    "execa": "npm:execa@^9.6.1"
+    "execa": "npm:execa@^9.6.1",
+    "path": "jsr:@std/path@^1.1.4",
+    "simple-git": "npm:simple-git@^3.33.0"
   },
   "publish": {
     "exclude": [
       ".vscode/",
-      "mise.toml"
+      "mise.toml",
+      "task-utils.code-workspace"
     ]
+  },
+  "fmt": {
+    "lineWidth": 999999999
   }
 }
