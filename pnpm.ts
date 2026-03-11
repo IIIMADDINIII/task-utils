@@ -1,5 +1,5 @@
 import { execa } from "execa";
-import { task } from "./context.ts";
+import { type Ctx, task } from "./context.ts";
 
 /**
  * Runs a raw pnpm command with the specified arguments.
@@ -7,12 +7,8 @@ import { task } from "./context.ts";
  * @param silent - Whether to suppress the command output in the console. If true, the command will be executed without printing the command and its output to the console. This can be useful in contexts where you want to run pnpm commands without cluttering the console output, such as in CI pipelines or when running multiple commands in sequence.
  * @returns - A promise resolving to the stdout of the pnpm command.
  */
-export const run = task("Running pnpm command", async (
-  ctx,
-  args: string[],
-): Promise<string> => {
-  return (await execa({ verbose: ctx.execaVerbose() })`pnpm ${args}`)
-    .stdout;
+export const run: (ctx: Ctx, args: string[]) => Promise<string> = task("Running pnpm command", async (ctx, args) => {
+  return (await execa({ verbose: ctx.execaVerbose() })`pnpm ${args}`).stdout;
 });
 
 /** Configuration options for pnpm operations. */
@@ -55,18 +51,24 @@ export function makeConfigFlags(config: PnpmConfig): string[] {
  * Run `pnpm install` with the specified options.
  * @param options - The options for the install operation. config.confirmModulesPurge will be set to false by default, which means that if pnpm needs to purge modules during installation, it will do so without asking for confirmation.
  */
-export const install = task("Installing pnpm dependencies", async (
-  ctx,
-  {
-    frozenLockfile = false,
-    config = { confirmModulesPurge: false },
-  }: {
-    /** Whether to use the frozen lockfile. Use this option to ensure a reproducible installation during CI builds. */
-    frozenLockfile?: boolean | undefined;
-    /** The configuration options for pnpm operations. config.confirmModulesPurge will be set to false by default, which means that if pnpm needs to purge modules during installation, it will do so without asking for confirmation. */
-    config?: PnpmConfig | undefined;
-  } = {},
-): Promise<void> => {
+export const install: (
+  ctx: Ctx,
+  options?: {
+    /**
+     * Whether to use the frozen lockfile. Use this option to ensure a reproducible installation during CI builds.
+     * @default false
+     */
+    frozenLockfile?: boolean;
+    /**
+     * The configuration options for pnpm operations.
+     * @default { confirmModulesPurge: false }
+     */
+    config?: PnpmConfig;
+  } | undefined,
+) => Promise<void> = task("Installing pnpm dependencies", async (ctx, {
+  frozenLockfile = false,
+  config = { confirmModulesPurge: false },
+} = {}): Promise<void> => {
   const args: string[] = [];
   if (frozenLockfile) args.push("--frozen-lockfile");
   await run(ctx, ["install", ...args, ...makeConfigFlags(config)]);

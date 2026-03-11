@@ -1,12 +1,12 @@
 import * as path from "path";
 import { simpleGit } from "simple-git";
-import { task } from "./context.ts";
+import { type Ctx, task } from "./context.ts";
 
 /**
  * Cleans files that are ignored by GIT in the repository.
  * This task uses the simple-git library to determine which files are ignored by GIT and then removes them from the file system.
  */
-export const gitIgnored = task("Cleaning GIT Ignored Files", async (ctx): Promise<void> => {
+export const gitIgnored: (ctx: Ctx) => Promise<void> = task("Cleaning GIT Ignored Files", async (ctx) => {
   const base = await simpleGit().revparse("--show-toplevel");
   const ignores = (await simpleGit().status(["--ignored=matching", "--untracked-files=normal", "--no-ahead-behind", "--no-renames"])).ignored;
   if (ignores === undefined) return;
