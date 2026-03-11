@@ -1,17 +1,52 @@
-import { Options } from "execa";
+import type { Options } from "execa";
 import * as colors from "fmt/colors";
 import { writeAllSync } from "io";
 
 /** A text encoder for encoding strings to bytes. */
 const textEncoder: TextEncoder = new TextEncoder();
 
-/** A context for running tasks. Provides utilities for output formatting and context management. */
-export abstract class Ctx {
-  /** Whether to suppress the command output in the console. */
-  #silent: boolean;
+export type CtxOptions = {
+  /**
+   * Prefix for all lines printed in this context. This is used to distinguish lines printed in different contexts.
+   * @default ""
+   */
+  prefix?: string | undefined;
+  /**
+   * Whether to suppress the command output in the console. If true, the command will be executed without printing the command and its output to the console.
+   * undefined means that the context will inherit the silent flag from its parent context, or be false if it has no parent context.
+   * @default undefined
+   */
+  silent?: boolean | undefined;
+  /**
+   * Name of the Context. This is used for logging purposes.
+   * @default ""
+   */
+  name?: string | undefined;
+};
 
-  constructor(silent: boolean = false) {
-    this.#silent = silent;
+/** A context for running tasks. Provides utilities for output formatting and context management. */
+export class Ctx {
+  /** The parent context of this sub-context. This is used to format lines with the parent context's formatting. */
+  #parent: Ctx | undefined;
+  /** The name of this sub-context. This is used for example to remember the task name. */
+  #name: string;
+  /** The prefix for all lines printed in this sub-context. */
+  #prefix: string;
+  /** The timestamp when this context was created. */
+  #createdAt: number;
+  /** Whether to suppress the command output in the console. */
+  silent: boolean | undefined;
+
+  constructor({
+    prefix = "",
+    silent = undefined,
+    name = "",
+  }: CtxOptions = {}, parent: Ctx | undefined = undefined) {
+    this.#parent = parent;
+    this.#prefix = prefix;
+    this.#name = name;
+    this.silent = silent;
+    this.#createdAt = Date.now();
   }
 
   /**
@@ -19,7 +54,10 @@ export abstract class Ctx {
    * @param line - The line of text to format.
    * @returns The formatted line.
    */
-  abstract formatLine(line: string): string;
+  formatLine(line: string): string {
+    if (this.#parent !== undefined) return this.#parent.formatLine(this.#prefix + line);
+    return this.#prefix + line;
+  }
 
   /**
    * Formats a duration in milliseconds to a human-readable string.
@@ -48,7 +86,7 @@ export abstract class Ctx {
    * @param string - The string to print.
    */
   print(string: string): void {
-    if (this.silent) return;
+    if (this.isSilent) return;
     writeAllSync(Deno.stdout, textEncoder.encode(this.formatLines(string)));
   }
 
@@ -58,17 +96,37 @@ export abstract class Ctx {
    * @param prefix - The prefix for the sub-context.
    * @returns The created sub-context.
    */
-  subCtx(prefix: string): SubCtx {
-    return new SubCtx(this, prefix);
+  subCtx(options: CtxOptions): Ctx {
+    return new Ctx(options, this);
   }
 
   /**
-   * Creates a task context with the specified name.
-   * @param name - The name of the task context.
-   * @returns The created task context.
+   * Starts a task with the specified name and returns a sub-context for the task. The task is marked as started in the console.
+   * @param name - The name of the task.
+   * @returns The sub-context for the task.
    */
-  taskCtx(name: string): TaskCtx {
-    return new TaskCtx(this, name);
+  #startTask(options: CtxOptions): Ctx {
+    this.print(`${colors.blue("⯈")} Start ${name}`);
+    return this.subCtx({ prefix: "  ", ...options });
+  }
+
+  /**
+   * Marks the task as successfully completed and prints the time taken to complete the task.
+   */
+  #endTaskSuccess(): void {
+    if (this.parent === undefined) throw new Error("Cannot end task in root context.");
+    const time = (Date.now() - this.#createdAt) / 1000;
+    this.parent.print(`${colors.green("✓")} Finished ${this.name} in ${time.toFixed(2)} s`);
+  }
+
+  /**
+   * Marks the task as failed and prints the time taken to complete the task along with the error message.
+   * @param error - The error that caused the task to fail.
+   */
+  #endTaskFailure(error: unknown): void {
+    if (this.parent === undefined) throw new Error("Cannot end task in root context.");
+    const time = (Date.now() - this.#createdAt) / 1000;
+    this.parent.print(`${colors.red("𐄂")} ${this.name} failed in ${time.toFixed(2)} s:\n  ${error}`);
   }
 
   /**
@@ -77,14 +135,16 @@ export abstract class Ctx {
    * @param fn - The function to run as the task.
    * @returns The result of the task function.
    */
-  runTask<T>(name: string, fn: (ctx: TaskCtx) => T): T {
-    const task = this.taskCtx(name);
+  runTask<T>(options: CtxOptions, fn: (ctx: Ctx) => T): T {
+    if (options.name === undefined) options.name = fn.name;
+    if (options.name === "") throw new Error("Function must have a name or be provided with one.");
+    const ctx = this.#startTask(options);
     try {
-      const result = fn(task);
-      task.endSuccess();
+      const result = fn(ctx);
+      ctx.#endTaskSuccess();
       return result;
     } catch (error) {
-      task.endFailure(error);
+      ctx.#endTaskFailure(error);
       throw error;
     }
   }
@@ -95,21 +155,33 @@ export abstract class Ctx {
    * @param fn - The asynchronous function to run as the task.
    * @returns A promise that resolves to the result of the task function.
    */
-  async runTaskAsync<T>(name: string, fn: (ctx: TaskCtx) => Promise<T>): Promise<T> {
-    const task = this.taskCtx(name);
+  async runTaskAsync<T>(options: CtxOptions, fn: (ctx: Ctx) => Promise<T>): Promise<T> {
+    if (options.name === undefined) options.name = fn.name;
+    if (options.name === "") throw new Error("Function must have a name or be provided with one.");
+    const ctx = this.#startTask(options);
     try {
-      const result = await fn(task);
-      task.endSuccess();
+      const result = await fn(ctx);
+      ctx.#endTaskSuccess();
       return result;
     } catch (error) {
-      task.endFailure(error);
+      ctx.#endTaskFailure(error);
       throw error;
     }
   }
 
+  /** The parent context of this sub-context. */
+  get parent(): Ctx | undefined {
+    return this.#parent;
+  }
+
+  /** The prefix for this sub-context. */
+  get prefix(): string {
+    return this.#prefix;
+  }
+
   /** Whether to suppress the command output in the console. */
-  get silent(): boolean {
-    return this.#silent;
+  get isSilent(): boolean {
+    return this.silent ?? this.parent?.isSilent ?? false;
   }
 
   /**
@@ -135,82 +207,15 @@ export abstract class Ctx {
       }
     };
   }
-}
 
-/** The main context for running tasks. This is the default context that can be used to run tasks without creating a sub-context. */
-export class MainCtx extends Ctx {
-  override formatLine(line: string): string {
-    return line;
-  }
-}
-
-/** A sub-context that can be used to group related tasks together. All lines printed in a sub-context will be prefixed with the sub-context name. */
-export class SubCtx extends Ctx {
-  /** The parent context of this sub-context. This is used to format lines with the parent context's formatting. */
-  #parent: Ctx;
-  /** The name of this sub-context. This is used as a prefix for all lines printed in this sub-context. */
-  #prefix: string;
-
-  constructor(parent: Ctx, prefix: string) {
-    super();
-    this.#parent = parent;
-    this.#prefix = prefix;
-  }
-
-  override formatLine(line: string): string {
-    return this.#parent.formatLine(this.#prefix + line);
-  }
-
-  /** The parent context of this sub-context. */
-  get parent(): Ctx {
-    return this.#parent;
-  }
-
-  /** The prefix for this sub-context. */
-  get prefix(): string {
-    return this.#prefix;
-  }
-}
-
-/** A context for running a specific task. */
-export class TaskCtx extends SubCtx {
-  /** The start time of the task. */
-  #startTime: number;
-  /** The name of the task. */
-  #name: string;
-
-  constructor(parent: Ctx, name: string) {
-    super(parent, "  ");
-    this.parent.print(`${colors.blue("⯈")} Start ${name}`);
-    this.#name = name;
-    this.#startTime = Date.now();
-  }
-
-  /**
-   * Marks the task as successfully completed and prints the time taken to complete the task.
-   */
-  endSuccess(): void {
-    const time = (Date.now() - this.#startTime) / 1000;
-    this.parent.print(`${colors.green("✓")} Finished ${this.name} in ${time.toFixed(2)} s`);
-  }
-
-  /**
-   * Marks the task as failed and prints the time taken to complete the task along with the error message.
-   * @param error - The error that caused the task to fail.
-   */
-  endFailure(error: unknown): void {
-    const time = (Date.now() - this.#startTime) / 1000;
-    this.parent.print(`${colors.red("𐄂")} ${this.name} failed in ${time.toFixed(2)} s:\n  ${error}`);
-  }
-
-  /** The name of the task. */
+  /** The name of the context. */
   get name(): string {
     return this.#name;
   }
 
-  /** The start time of the task. */
-  get startTime(): number {
-    return this.#startTime;
+  /** The timestamp when this context was created. */
+  get createdAt(): number {
+    return this.#createdAt;
   }
 }
 
@@ -219,18 +224,24 @@ export class TaskCtx extends SubCtx {
  * @param fn - The task function to wrap. This function should take a context as its first argument and return a promise.
  * @returns A new function that wraps the original function and runs it as a task in the context.
  */
-export function task<A extends unknown[], R>(fn: (ctx: TaskCtx, ...args: A) => Promise<R>): (ctx: Ctx, ...args: A) => Promise<R>;
+export function task<A extends unknown[], R>(fn: (ctx: Ctx, ...args: A) => Promise<R>): (ctx: Ctx, ...args: A) => Promise<R>;
 /**
  * A decorator function that wraps a task function to automatically run it as a task in the context with a specified name.
  * @param name - The name of the task. This will be used as the task name when running the task in the context.
  * @param fn - The task function to wrap. This function should take a context as its first argument and return a promise.
  * @returns A new function that wraps the original function and runs it as a task in the context with the specified name.
  */
-export function task<A extends unknown[], R>(name: string, fn: (ctx: TaskCtx, ...args: A) => Promise<R>): (ctx: Ctx, ...args: A) => Promise<R>;
-export function task<A extends unknown[], R>(...args: [string, (ctx: TaskCtx, ...args: A) => Promise<R>] | [(ctx: TaskCtx, ...args: A) => Promise<R>]): (ctx: Ctx, ...args: A) => Promise<R> {
-  const [name, fn] = args.length === 2 ? args : [args[0].name, args[0]];
-  if (name === "") throw new Error("Function must have a name or be provided with one.");
+export function task<A extends unknown[], R>(name: string, fn: (ctx: Ctx, ...args: A) => Promise<R>): (ctx: Ctx, ...args: A) => Promise<R>;
+/**
+ * A decorator function that wraps a task function to automatically run it as a task in the context with specified options.
+ * @param options - The options for the task context.
+ * @param fn - The task function to wrap.
+ * @returns A new function that wraps the original function and runs it as a task in the context with the specified options.
+ */
+export function task<A extends unknown[], R>(options: CtxOptions, fn: (ctx: Ctx, ...args: A) => Promise<R>): (ctx: Ctx, ...args: A) => Promise<R>;
+export function task<A extends unknown[], R>(...args: [CtxOptions, (ctx: Ctx, ...args: A) => Promise<R>] | [string, (ctx: Ctx, ...args: A) => Promise<R>] | [(ctx: Ctx, ...args: A) => Promise<R>]): (ctx: Ctx, ...args: A) => Promise<R> {
+  const [options, fn] = args.length === 2 ? [typeof args[0] === "string" ? { name: args[0] } : args[0], args[1]] : [{ name: args[0].name }, args[0]];
   return async function (ctx, ...args) {
-    return await ctx.runTaskAsync(name, (ctx) => fn(ctx, ...args));
+    return await ctx.runTaskAsync(options, (ctx) => fn(ctx, ...args));
   };
 }
