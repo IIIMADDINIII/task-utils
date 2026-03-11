@@ -1,4 +1,4 @@
-import { writeAll } from "io";
+import { writeAllSync } from "io";
 
 /** A text encoder for encoding strings to bytes. */
 const textEncoder: TextEncoder = new TextEncoder();
@@ -47,7 +47,7 @@ export abstract class Ctx {
    */
   print(string: string): void {
     if (this.silent) return;
-    writeAll(Deno.stdout, textEncoder.encode(this.formatLines(string)));
+    writeAllSync(Deno.stdout, textEncoder.encode(this.formatLines(string)));
   }
 
   /**
