@@ -1,3 +1,4 @@
+import * as colors from "fmt/colors";
 import { writeAllSync } from "io";
 
 /** A text encoder for encoding strings to bytes. */
@@ -163,7 +164,7 @@ export class TaskCtx extends SubCtx {
 
   constructor(parent: Ctx, name: string) {
     super(parent, "  ");
-    this.parent.print(`▶️ Start ${name}`);
+    this.parent.print(`${colors.blue("⯈")} Start ${name}`);
     this.#name = name;
     this.#startTime = Date.now();
   }
@@ -173,7 +174,7 @@ export class TaskCtx extends SubCtx {
    */
   endSuccess(): void {
     const time = (Date.now() - this.#startTime) / 1000;
-    this.parent.print(`✅ Finished ${this.name} in ${time.toFixed(2)} s`);
+    this.parent.print(`${colors.green("✓")} Finished ${this.name} in ${time.toFixed(2)} s`);
   }
 
   /**
@@ -182,7 +183,7 @@ export class TaskCtx extends SubCtx {
    */
   endFailure(error: unknown): void {
     const time = (Date.now() - this.#startTime) / 1000;
-    this.parent.print(`❌ ${this.name} failed in ${time.toFixed(2)} s:\n  ${error}`);
+    this.parent.print(`${colors.red("𐄂")} ${this.name} failed in ${time.toFixed(2)} s:\n  ${error}`);
   }
 
   /** The name of the task. */

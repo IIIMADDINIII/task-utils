@@ -1,6 +1,6 @@
 {
   "name": "@iiimaddiniii/task-utils",
-  "version": "0.0.1-7",
+  "version": "0.0.1-8",
   "license": "MIT",
   "exports": {
     ".": "./main.ts",
@@ -12,7 +12,8 @@
     "execa": "npm:execa@^9.6.1",
     "path": "jsr:@std/path@^1.1.4",
     "simple-git": "npm:simple-git@^3.33.0",
-    "io": "jsr:@std/io@^0.225.3"
+    "io": "jsr:@std/io@^0.225.3",
+    "fmt": "jsr:@std/fmt"
   },
   "publish": {
     "exclude": [
