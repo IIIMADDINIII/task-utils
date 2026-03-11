@@ -38,7 +38,7 @@ export abstract class Ctx {
    */
   formatLines(lines: string | string[]): string {
     if (Array.isArray(lines)) lines = lines.join("\n");
-    return lines.split("\n").map((line) => "\n" + this.formatLine(line)).join("");
+    return lines.split("\n").map((line) => this.formatLine(line) + "\n").join("");
   }
 
   /**
