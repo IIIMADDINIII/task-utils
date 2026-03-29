@@ -3,11 +3,11 @@ import { type Ctx, task } from "./context.ts";
 
 /**
  * Runs a raw pnpm command with the specified arguments.
+ * @param ctx - The context for the task.
  * @param args - The command-line arguments for the pnpm command.
- * @param silent - Whether to suppress the command output in the console. If true, the command will be executed without printing the command and its output to the console. This can be useful in contexts where you want to run pnpm commands without cluttering the console output, such as in CI pipelines or when running multiple commands in sequence.
  * @returns - A promise resolving to the stdout of the pnpm command.
  */
-export const run: (ctx: Ctx, args: string[]) => Promise<string> = task("Running pnpm command", async (ctx, args) => {
+export const runWithArgs: (ctx: Ctx, args: string[]) => Promise<string> = task("Running pnpm command", async (ctx, args) => {
   return (await execa({ verbose: ctx.execaVerbose() })`pnpm ${args}`).stdout;
 });
 
@@ -49,6 +49,7 @@ export function makeConfigFlags(config: PnpmConfig): string[] {
 
 /**
  * Run `pnpm install` with the specified options.
+ * @param ctx - The context for the task.
  * @param options - The options for the install operation. config.confirmModulesPurge will be set to false by default, which means that if pnpm needs to purge modules during installation, it will do so without asking for confirmation.
  */
 export const install: (
@@ -71,5 +72,5 @@ export const install: (
 } = {}): Promise<void> => {
   const args: string[] = [];
   if (frozenLockfile) args.push("--frozen-lockfile");
-  await run(ctx, ["install", ...args, ...makeConfigFlags(config)]);
+  await runWithArgs(ctx, ["install", ...args, ...makeConfigFlags(config)]);
 });
