@@ -2,9 +2,16 @@ import type { Options } from "execa";
 import * as colors from "fmt/colors";
 import { writeAllSync } from "io";
 
+export class TaskError extends Error {
+  constructor(task: string, cause: unknown) {
+    super(`Task Failed due to a sub task ${task} failing.`, { cause });
+  }
+}
+
 /** A text encoder for encoding strings to bytes. */
 const textEncoder: TextEncoder = new TextEncoder();
 
+/** Options for creating a new context. */
 export type CtxOptions = {
   /**
    * Prefix for all lines printed in this context. This is used to distinguish lines printed in different contexts.
@@ -26,6 +33,26 @@ export type CtxOptions = {
 
 /** A context for running tasks. Provides utilities for output formatting and context management. */
 export class Ctx {
+  /**
+   * Runs a task function with the specified context options and arguments. 
+   * This is the main entry point for running tasks in this utility. 
+   * It creates a new context with the specified options, runs the task function with the context and arguments, and handles any errors that occur during the execution of the task.
+   * @param task - The task function to run. This function should take a context as its first argument and return a promise.
+   * @param options - The options for the context. This includes the prefix for lines printed in the context, whether to suppress command output, and the name of the context.
+   * @param args - The arguments to pass to the task function after the context.
+   */
+  static run<T extends unknown[]>(task: (ctx: Ctx, ...args: T) => Promise<void>, options: CtxOptions = {}, ...args: T): void {
+    const ctx = new Ctx(options);
+    task(ctx, ...args).then(() => {
+      Deno.exit(0);
+    }).catch((e) => {
+      if (!(e instanceof TaskError)) {
+        throw e;
+      }
+      Deno.exit(0);
+    });
+  }
+
   /** The parent context of this sub-context. This is used to format lines with the parent context's formatting. */
   #parent: Ctx | undefined;
   /** The name of this sub-context. This is used for example to remember the task name. */
@@ -124,10 +151,15 @@ export class Ctx {
    * Marks the task as failed and prints the time taken to complete the task along with the error message.
    * @param error - The error that caused the task to fail.
    */
-  #endTaskFailure(error: unknown): void {
+  #endTaskFailure(error: unknown): never {
     if (this.parent === undefined) throw new Error("Cannot end task in root context.");
     const time = (Date.now() - this.#createdAt) / 1000;
-    this.parent.print(`${colors.red("𐄂")} ${this.name} failed in ${time.toFixed(2)} s:\n  ${error}`);
+    if (!(error instanceof TaskError)) {
+      this.parent.print(colors.red(`🖣 Error during execution of ${this.name}:`));
+      this.print(colors.red(`${error}`));
+    }
+    this.parent.print(`${colors.red("𐄂")} ${this.name} failed in ${time.toFixed(2)} s.`);
+    throw new TaskError(this.name, error);
   }
 
   /**
@@ -145,8 +177,8 @@ export class Ctx {
       return result;
     } catch (error) {
       ctx.#endTaskFailure(error);
-      throw error;
     }
+    throw "This never happens, but Deno doesn't know that.";
   }
 
   /**
@@ -164,8 +196,8 @@ export class Ctx {
       return result;
     } catch (error) {
       ctx.#endTaskFailure(error);
-      throw error;
     }
+    throw "This never happens, but Deno doesn't know that.";
   }
 
   /** The parent context of this sub-context. */

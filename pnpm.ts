@@ -3,12 +3,23 @@ import { type Ctx, task } from "./context.ts";
 
 /**
  * Runs a raw pnpm command with the specified arguments.
+ * Does not run it as a separate task.
+ * @param ctx - The context for the task.
+ * @param args - The command-line arguments for the pnpm command.
+ * @returns - A promise resolving to the stdout of the pnpm command.
+ */
+async function pnpm(ctx: Ctx, args: string[]): Promise<string> {
+  return (await execa({ verbose: ctx.execaVerbose() })`pnpm ${args}`).stdout;
+}
+
+/**
+ * Runs a raw pnpm command with the specified arguments.
  * @param ctx - The context for the task.
  * @param args - The command-line arguments for the pnpm command.
  * @returns - A promise resolving to the stdout of the pnpm command.
  */
 export const runWithArgs: (ctx: Ctx, args: string[]) => Promise<string> = task("Running pnpm command", async (ctx, args) => {
-  return (await execa({ verbose: ctx.execaVerbose() })`pnpm ${args}`).stdout;
+  return await pnpm(ctx, args);
 });
 
 /** Configuration options for pnpm operations. */
@@ -72,5 +83,5 @@ export const install: (
 } = {}): Promise<void> => {
   const args: string[] = [];
   if (frozenLockfile) args.push("--frozen-lockfile");
-  await runWithArgs(ctx, ["install", ...args, ...makeConfigFlags(config)]);
+  await pnpm(ctx, ["install", ...args, ...makeConfigFlags(config)]);
 });
