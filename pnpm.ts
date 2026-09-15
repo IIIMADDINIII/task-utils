@@ -1,25 +1,21 @@
 import { execa } from "execa";
-import { type Ctx, task } from "./context.ts";
+import { type Ctx, type Task, task } from "./context.ts";
+import type { ExecaCommonOptions } from "./utils.ts";
 
-/**
- * Runs a raw pnpm command with the specified arguments.
- * Does not run it as a separate task.
- * @param ctx - The context for the task.
- * @param args - The command-line arguments for the pnpm command.
- * @returns - A promise resolving to the stdout of the pnpm command.
- */
-async function pnpm(ctx: Ctx, args: string[]): Promise<string> {
-  return (await execa({ verbose: ctx.execaVerbose() })`pnpm ${args}`).stdout;
-}
+/** Common options for the pnpm commands. */
+export type CommonOptions = ExecaCommonOptions;
 
 /**
  * Runs a raw pnpm command with the specified arguments.
  * @param ctx - The context for the task.
- * @param args - The command-line arguments for the pnpm command.
+ * @param options - The options containing the command-line arguments and common options for the pnpm command.
  * @returns - A promise resolving to the stdout of the pnpm command.
  */
-export const runWithArgs: (ctx: Ctx, args: string[]) => Promise<string> = task("Running pnpm command", async (ctx, args) => {
-  return await pnpm(ctx, args);
+export const runWithArgs: Task<(ctx: Ctx, options: {
+  /** The command-line arguments for the pnpm command. */
+  args: string[];
+} & CommonOptions) => Promise<string>> = task("Running pnpm command", async (ctx, { args, ...options }) => {
+  return (await execa({ ...ctx.execaOptions(options) })`pnpm ${args}`).stdout;
 });
 
 /** Configuration options for pnpm operations. */
@@ -63,25 +59,23 @@ export function makeConfigFlags(config: PnpmConfig): string[] {
  * @param ctx - The context for the task.
  * @param options - The options for the install operation. config.confirmModulesPurge will be set to false by default, which means that if pnpm needs to purge modules during installation, it will do so without asking for confirmation.
  */
-export const install: (
-  ctx: Ctx,
-  options?: {
-    /**
-     * Whether to use the frozen lockfile. Use this option to ensure a reproducible installation during CI builds.
-     * @default false
-     */
-    frozenLockfile?: boolean;
-    /**
-     * The configuration options for pnpm operations.
-     * @default { confirmModulesPurge: false }
-     */
-    config?: PnpmConfig;
-  } | undefined,
-) => Promise<void> = task("Installing pnpm dependencies", async (ctx, {
-  frozenLockfile = false,
+export const install: Task<(ctx: Ctx, options?: undefined | {
+  /**
+   * Whether to use the frozen lockfile. Use this option to ensure a reproducible installation during CI builds.
+   * @default ctx.isProd
+   */
+  frozenLockfile?: boolean;
+  /**
+   * The configuration options for pnpm operations.
+   * @default { confirmModulesPurge: false }
+   */
+  config?: PnpmConfig;
+} & CommonOptions) => Promise<void>> = task("Installing pnpm dependencies", async (ctx, {
+  frozenLockfile = ctx.isProd,
   config = { confirmModulesPurge: false },
+  ...options
 } = {}): Promise<void> => {
   const args: string[] = [];
   if (frozenLockfile) args.push("--frozen-lockfile");
-  await pnpm(ctx, ["install", ...args, ...makeConfigFlags(config)]);
+  await runWithArgs.orig(ctx, { ...options, args: ["install", ...args, ...makeConfigFlags(config)] });
 });

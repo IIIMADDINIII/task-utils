@@ -1,4 +1,5 @@
-import * as path from "path";
+import * as colors from "@std/fmt/colors";
+import * as path from "@std/path";
 import { simpleGit } from "simple-git";
 import { type Ctx, task } from "./context.ts";
 
@@ -15,7 +16,7 @@ export const gitIgnored: (ctx: Ctx) => Promise<void> = task("Cleaning GIT Ignore
       ctx.print(`Removing ${ignore}`);
       await Deno.remove(path.join(base, ignore), { recursive: true });
     } catch (error) {
-      ctx.print(`Failed to remove ${ignore}:\n  ${error}`);
+      ctx.print(colors.red(`Failed to remove ${ignore}:\n  ${error}`));
       throw error;
     }
   }));

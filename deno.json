@@ -1,19 +1,24 @@
 {
   "name": "@iiimaddiniii/task-utils",
-  "version": "0.0.4",
+  "version": "0.0.6",
   "license": "MIT",
   "exports": {
     ".": "./main.ts",
     "./pnpm": "./pnpm.ts",
     "./cleanup": "./cleanup.ts",
-    "./context": "./context.ts"
+    "./context": "./context.ts",
+    "./utils": "./utils.ts",
+    "./ts": "./ts.ts",
+    "./vp": "./vp.ts",
+    "./lit": "./lit.ts"
   },
   "imports": {
     "execa": "npm:execa@^9.6.1",
-    "path": "jsr:@std/path@^1.1.4",
+    "@std/path": "jsr:@std/path@^1.1.4",
     "simple-git": "npm:simple-git@^3.33.0",
-    "io": "jsr:@std/io@^0.225.3",
-    "fmt": "jsr:@std/fmt@^1.0.9"
+    "@std/io": "jsr:@std/io@^0.225.3",
+    "@std/fmt": "jsr:@std/fmt@^1.0.9",
+    "@std/fs": "jsr:@std/fs@^1.0.24"
   },
   "publish": {
     "exclude": [
